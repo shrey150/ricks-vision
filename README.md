@@ -5,17 +5,24 @@ In collaboration with [ricksline.bar](https://ricksline.bar) 🥂
 
 
 ## Getting started
-1. Setup the frontend.
+We use `uv` as our Python package manager and `git-lfs` to manage large videos.
+
+Make sure you have both installed (assuming macOS):
+```
+brew install uv
+brew install git-lfs
+```
+
+Then, setup and start the frontend dev server:
 
 ```
 cd client
-npm install         # download dependencies
-npm run dev         # start the frontend server
+npm install
+npm run dev
 ```
 
-2. Setup the backend.
+Finally, setup and start the FastAPI server:
 ```
 cd server
-brew install uv     # you probably need to install uv
-uv run fastapi dev  # start the backend server
+uv run fastapi dev
 ```
