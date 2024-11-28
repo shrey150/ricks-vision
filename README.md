@@ -16,6 +16,6 @@ npm run dev         # start the frontend server
 2. Setup the backend.
 ```
 cd server
-pipx install poetry     # you probably need to install poetry
-poetry run fastapi dev  # start the backend server
+brew install uv     # you probably need to install uv
+uv run fastapi dev  # start the backend server
 ```

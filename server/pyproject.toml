@@ -1,15 +1,9 @@
-[tool.poetry]
-name = "server"
+[project]
+name = "ricks-vision-server"
 version = "0.1.0"
-description = ""
-authors = ["Shrey Pandya <shrey150@yahoo.com>"]
+description = "Backend for tracking the Rick's line"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.13"
-fastapi = {extras = ["standard"], version = "^0.115.5"}
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi[standard]>=0.115.5",
+]
