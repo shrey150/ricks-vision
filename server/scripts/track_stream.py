@@ -15,9 +15,6 @@ output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
 # Load the video
 cap = cv2.VideoCapture("../data/ricks-stream.ts")
 
-# Define the line (e.g., a horizontal line at y=300)
-line_y = 300
-
 # Initialize Tkinter
 root = Tk()
 root.title("Video Player")
@@ -40,7 +37,25 @@ info_label.grid(row=1, column=0, padx=10, pady=10)
 # Variable to track play/pause state
 is_playing = False
 
-# Function to process and display a frame
+# Define queue_box as a list of tuples representing the polygon's vertices
+queue_box = [(564, 507), (470, 488), (816, 141), (869, 153)]  # Coordinates from user clicks
+
+def point_in_polygon(x, y, polygon):
+    n = len(polygon)
+    inside = False
+    p1x, p1y = polygon[0]
+    for i in range(n + 1):
+        p2x, p2y = polygon[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
 def process_frame(frame_number):
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     ret, frame = cap.read()
@@ -48,55 +63,43 @@ def process_frame(frame_number):
         return None
 
     height, width, _ = frame.shape
-
-    # Detecting objects
     blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
     net.setInput(blob)
     outs = net.forward(output_layers)
 
-    # Information to show on the screen
-    class_ids = []
-    confidences = []
-    boxes = []
+    boxes, confidences, class_ids = [], [], []
 
-    # Loop over each detection
     for out in outs:
         for detection in out:
             scores = detection[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.5 and class_id == 0:  # Class ID 0 is for 'person' in COCO dataset
-                # Object detected
-                center_x = int(detection[0] * width)
-                center_y = int(detection[1] * height)
-                w = int(detection[2] * width)
-                h = int(detection[3] * height)
-
-                # Rectangle coordinates
-                x = int(center_x - w / 2)
-                y = int(center_y - h / 2)
-
+            if confidence > 0.5 and class_id == 0:
+                center_x, center_y, w, h = map(int, detection[:4] * [width, height, width, height])
+                x, y = int(center_x - w / 2), int(center_y - h / 2)
                 boxes.append([x, y, w, h])
                 confidences.append(float(confidence))
                 class_ids.append(class_id)
 
-    # Apply non-max suppression
     indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+    count_in_queue = 0
 
-    # Draw bounding boxes and the line
-    for i in range(len(boxes)):
-        if i in indexes:
-            x, y, w, h = boxes[i]
-            label = str("Person")
-            color = (0, 255, 0)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(frame, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    for i in indexes.flatten():
+        x, y, w, h = boxes[i]
+        # Check if person's center point is inside the polygon
+        center_x = x + w//2
+        center_y = y + h//2
+        if point_in_polygon(center_x, center_y, queue_box):
+            count_in_queue += 1
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-    # Draw the line
-    cv2.line(frame, (0, line_y), (width, line_y), (255, 0, 0), 2)
+    # Draw queue region as a polygon
+    points = np.array(queue_box, np.int32)
+    points = points.reshape((-1, 1, 2))
+    cv2.polylines(frame, [points], True, (255, 0, 0), 2)
+    
+    return frame, count_in_queue, width
 
-    # Return processed frame
-    return frame, len(indexes), width
 
 # Function to update the frame
 def update_frame():
