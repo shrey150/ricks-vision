@@ -7,3 +7,16 @@ Left Click at: x=535, y=498
 Left Click at: x=481, y=493
 Left Click at: x=828, y=155
 Left Click at: x=857, y=152
+
+Power lines (black these out)
+Line 1
+Left Click at: x=701, y=239
+Left Click at: x=832, y=237
+
+Line 2
+Left Click at: x=702, y=207
+Left Click at: x=838, y=203
+
+Line 3
+Left Click at: x=695, y=185
+Left Click at: x=868, y=180
