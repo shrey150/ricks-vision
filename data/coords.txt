@@ -1,0 +1,9 @@
+Left Click at: x=330, y=393
+Left Click at: x=511, y=117
+Left Click at: x=495, y=114
+Left Click at: x=283, y=376
+
+Left Click at: x=535, y=498
+Left Click at: x=481, y=493
+Left Click at: x=828, y=155
+Left Click at: x=857, y=152

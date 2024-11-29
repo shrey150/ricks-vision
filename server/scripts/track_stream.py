@@ -38,7 +38,9 @@ info_label.grid(row=1, column=0, padx=10, pady=10)
 is_playing = False
 
 # Define queue_box as a list of tuples representing the polygon's vertices
-queue_box = [(564, 507), (470, 488), (816, 141), (869, 153)]  # Coordinates from user clicks
+queue_box = [(535, 498), (481, 493), (828, 155), (857, 152)]  # Coordinates from coords.txt
+selected_vertex = None
+vertex_radius = 5
 
 def point_in_polygon(x, y, polygon):
     n = len(polygon)
@@ -56,6 +58,24 @@ def point_in_polygon(x, y, polygon):
         p1x, p1y = p2x, p2y
     return inside
 
+def mouse_callback(event, x, y, flags, param):
+    global selected_vertex
+    
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Check if click is near any vertex
+        for i, (vx, vy) in enumerate(queue_box):
+            if abs(x - vx) < vertex_radius * 2 and abs(y - vy) < vertex_radius * 2:
+                selected_vertex = i
+                break
+                
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if selected_vertex is not None:
+            queue_box[selected_vertex] = (x, y)
+            update_frame()
+            
+    elif event == cv2.EVENT_LBUTTONUP:
+        selected_vertex = None
+
 def process_frame(frame_number):
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     ret, frame = cap.read()
@@ -63,6 +83,9 @@ def process_frame(frame_number):
         return None
 
     height, width, _ = frame.shape
+    
+    # Commented out YOLO detection for faster scrubbing
+    '''
     blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
     net.setInput(blob)
     outs = net.forward(output_layers)
@@ -92,14 +115,19 @@ def process_frame(frame_number):
         if point_in_polygon(center_x, center_y, queue_box):
             count_in_queue += 1
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    '''
+    count_in_queue = 0  # Placeholder while detection is disabled
 
     # Draw queue region as a polygon
     points = np.array(queue_box, np.int32)
     points = points.reshape((-1, 1, 2))
     cv2.polylines(frame, [points], True, (255, 0, 0), 2)
     
+    # Draw draggable vertices
+    for x, y in queue_box:
+        cv2.circle(frame, (x, y), vertex_radius, (0, 0, 255), -1)
+    
     return frame, count_in_queue, width
-
 
 # Function to update the frame
 def update_frame():
@@ -140,6 +168,10 @@ play_pause_button.grid(row=2, column=0, padx=10, pady=10)
 # Button to update the frame
 update_button = Button(root, text="Update Frame", command=update_frame)
 update_button.grid(row=1, column=1, padx=10, pady=10)
+
+# Set up mouse callback
+cv2.namedWindow("Frame")
+cv2.setMouseCallback("Frame", mouse_callback)
 
 # Start the video thread
 threading.Thread(target=video_thread, daemon=True).start()
