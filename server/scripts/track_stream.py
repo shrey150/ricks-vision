@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import os
-from tkinter import Tk, Scale, HORIZONTAL, Button, Label
+from tkinter import Tk, Scale, HORIZONTAL, Button, Label, StringVar, OptionMenu, Checkbutton, BooleanVar
 import threading
 
 # Load YOLO
@@ -17,7 +17,7 @@ cap = cv2.VideoCapture("../data/ricks-stream.ts")
 
 # Initialize Tkinter
 root = Tk()
-root.title("Video Player")
+root.title("Video Player and Image Enhancer")
 
 # Video properties
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -76,13 +76,94 @@ def mouse_callback(event, x, y, flags, param):
     elif event == cv2.EVENT_LBUTTONUP:
         selected_vertex = None
 
+# Image processing parameters (sliders will update these)
+alpha, beta, gamma = 12.7, 42, 10.0
+blur, kernel_size = 5, 21
+morph_operation = "Opening"
+line_thickness = 2
+use_fill, use_blur = True, False
+draw_lines = BooleanVar()
+draw_lines.set(True)
+
+# Morphological operations dictionary
+morph_operations = {
+    "Erosion": cv2.erode,
+    "Dilation": cv2.dilate,
+    "Opening": lambda img, k: cv2.morphologyEx(img, cv2.MORPH_OPEN, k),
+    "Closing": lambda img, k: cv2.morphologyEx(img, cv2.MORPH_CLOSE, k),
+    "Gradient": lambda img, k: cv2.morphologyEx(img, cv2.MORPH_GRADIENT, k),
+}
+
+def set_param(param_name, value):
+    """Update global parameters based on slider inputs and refresh the frame."""
+    global alpha, beta, gamma, blur, kernel_size, morph_operation, draw_lines
+    if param_name == "alpha":
+        alpha = float(value)
+    elif param_name == "beta":
+        beta = float(value)
+    elif param_name == "gamma":
+        gamma = float(value)
+    elif param_name == "blur":
+        blur = int(value)
+        if blur % 2 == 0:
+            blur += 1  # Ensure blur size is odd
+    elif param_name == "kernel_size":
+        kernel_size = int(value)
+        if kernel_size % 2 == 0:
+            kernel_size += 1  # Ensure kernel size is odd
+    elif param_name == "morph_operation":
+        morph_operation = value
+    elif param_name == "draw_lines":
+        draw_lines = value
+
+    # Redraw the frame with updated parameters
+    update_frame()
+
+
+def process_image(image, alpha, beta, gamma, blur, kernel_size, morph_operation, lines, line_thickness, use_fill, use_blur, draw_lines):
+    """Image enhancement pipeline."""
+    enhanced_img = cv2.convertScaleAbs(image, alpha=alpha / 10.0, beta=beta)
+    look_up_table = np.array([((i / 255.0) ** (gamma / 10.0)) * 255 for i in range(256)]).astype("uint8")
+    gamma_corrected = cv2.LUT(enhanced_img, look_up_table)
+    blurred = cv2.GaussianBlur(gamma_corrected, (blur, blur), 0)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    morphed = morph_operations[morph_operation](blurred, kernel)
+
+    if use_fill:
+        morphed = fill_lines(morphed, lines, line_thickness, use_blur, blur)
+
+    if draw_lines:
+        for line in lines:
+            cv2.line(morphed, line[0], line[1], (0, 0, 255), line_thickness)
+
+    return morphed
+
+
+def fill_lines(img, lines, thickness, use_blur, blur_size):
+    """Fill power lines with median pixel value and optionally apply Gaussian blur."""
+    result = img.copy()
+    for pt1, pt2 in lines:
+        mask = np.zeros_like(result[:, :, 0], dtype=np.uint8)
+        cv2.line(mask, pt1, pt2, 255, thickness)
+        masked_pixels = result[mask == 255]
+        median_val = tuple(map(int, np.median(masked_pixels, axis=0))) if len(masked_pixels) > 0 else (0, 0, 0)
+        cv2.line(result, pt1, pt2, median_val, thickness)
+
+    if use_blur:
+        blur_size = blur_size if blur_size % 2 != 0 else blur_size + 1
+        result = cv2.GaussianBlur(result, (blur_size, blur_size), 0)
+
+    return result
+
+
 def process_frame(frame_number):
+    """Process a single frame."""
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     ret, frame = cap.read()
     if not ret:
         return None
-
-    height, width, _ = frame.shape
+    
+        height, width, _ = frame.shape
     
     # Commented out YOLO detection for faster scrubbing
     '''
@@ -118,66 +199,111 @@ def process_frame(frame_number):
     '''
     count_in_queue = 0  # Placeholder while detection is disabled
 
+    # Enhance image
+    lines = [[(701, 239), (832, 237)], [(702, 207), (838, 203)], [(695, 185), (868, 180)]]
+    frame = process_image(frame, alpha, beta, gamma, blur, kernel_size, morph_operation, lines, line_thickness, use_fill, use_blur, draw_lines)
+
     # Draw queue region as a polygon
-    points = np.array(queue_box, np.int32)
-    points = points.reshape((-1, 1, 2))
+    points = np.array(queue_box, np.int32).reshape((-1, 1, 2))
     cv2.polylines(frame, [points], True, (255, 0, 0), 2)
-    
+
     # Draw draggable vertices
     for x, y in queue_box:
         cv2.circle(frame, (x, y), vertex_radius, (0, 0, 255), -1)
-    
-    return frame, count_in_queue, width
 
-# Function to update the frame
+    return frame, 0, 0  # Dummy values for people_count and line_length
+
 def update_frame():
+    """Update the frame."""
     frame_number = scale.get()
-    result = process_frame(frame_number)
-    if result is not None:
-        frame, people_count, line_length = result
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+    ret, original_frame = cap.read()
+    if ret:
+        # Process the frame
+        processed_result = process_frame(frame_number)
+        if processed_result:
+            processed_frame, people_count, line_length = processed_result
+            
+            # Show original frame
+            cv2.imshow("Original Frame", original_frame)
+            
+            # Show processed frame
+            cv2.imshow("Processed Frame", processed_frame)
+            
+            # Update information label
+            info_label.config(text=f"People: {people_count}, Line Length: {line_length}")
 
-        # Display the frame
-        cv2.imshow("Frame", frame)
 
-        # Update the information label
-        info_label.config(text=f"People: {people_count}, Line Length: {line_length}")
-
-# Function to toggle play/pause state
 def toggle_play_pause():
+    """Toggle play/pause state."""
     global is_playing
     is_playing = not is_playing
     play_pause_button.config(text="Pause" if is_playing else "Play")
 
-# Function to run OpenCV's imshow in a separate thread
 def video_thread():
+    """Thread for playing the video."""
     while True:
         if is_playing:
             frame_number = scale.get()
-            result = process_frame(frame_number)
-            if result is not None:
-                frame, people_count, line_length = result
-                cv2.imshow("Frame", frame)
-                cv2.waitKey(int(1000 / fps))  # Wait for the duration of one frame
-                # Move to the next frame
-                scale.set((frame_number + 1) % total_frames)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            ret, original_frame = cap.read()
+            if ret:
+                processed_result = process_frame(frame_number)
+                if processed_result:
+                    processed_frame, people_count, line_length = processed_result
 
-# Button to toggle play/pause
+                    # Show original frame
+                    cv2.imshow("Original Frame", original_frame)
+
+                    # Show processed frame
+                    cv2.imshow("Processed Frame", processed_frame)
+
+                    # Update scale and wait for next frame
+                    cv2.waitKey(int(1000 / fps))
+                    scale.set((frame_number + 1) % total_frames)
+
+
+# Tkinter controls for image processing
+Label(root, text="Alpha").grid(row=2, column=0)
+alpha_slider = Scale(root, from_=1, to=100, orient=HORIZONTAL, command=lambda v: set_param("alpha", v))
+alpha_slider.set(alpha)
+alpha_slider.grid(row=2, column=1)
+
+Label(root, text="Beta").grid(row=3, column=0)
+beta_slider = Scale(root, from_=0, to=100, orient=HORIZONTAL, command=lambda v: set_param("beta", v))
+beta_slider.set(beta)
+beta_slider.grid(row=3, column=1)
+
+Label(root, text="Gamma").grid(row=4, column=0)
+gamma_slider = Scale(root, from_=1, to=100, orient=HORIZONTAL, command=lambda v: set_param("gamma", v))
+gamma_slider.set(gamma)
+gamma_slider.grid(row=4, column=1)
+
+Label(root, text="Blur").grid(row=5, column=0)
+blur_slider = Scale(root, from_=1, to=21, orient=HORIZONTAL, command=lambda v: set_param("blur", v))
+blur_slider.set(blur)
+blur_slider.grid(row=5, column=1)
+
+Label(root, text="Kernel Size").grid(row=6, column=0)
+kernel_slider = Scale(root, from_=1, to=21, orient=HORIZONTAL, command=lambda v: set_param("kernel_size", v))
+kernel_slider.set(kernel_size)
+kernel_slider.grid(row=6, column=1)
+
+morph_var = StringVar(root)
+morph_var.set("Opening")
+morph_menu = OptionMenu(root, morph_var, *morph_operations.keys(), command=lambda v: set_param("morph_operation", v))
+morph_menu.grid(row=7, column=1)
+
+draw_lines_checkbox = Checkbutton(root, text="Draw Power Lines", variable=draw_lines, command=lambda: set_param("draw_lines", draw_lines.get()))
+draw_lines_checkbox.grid(row=8, column=0, padx=10, pady=10)
+
+# Play/pause button
 play_pause_button = Button(root, text="Play", command=toggle_play_pause)
-play_pause_button.grid(row=2, column=0, padx=10, pady=10)
+play_pause_button.grid(row=9, column=0, padx=10, pady=10)
 
-# Button to update the frame
-update_button = Button(root, text="Update Frame", command=update_frame)
-update_button.grid(row=1, column=1, padx=10, pady=10)
-
-# Set up mouse callback
-cv2.namedWindow("Frame")
-cv2.setMouseCallback("Frame", mouse_callback)
-
-# Start the video thread
+# Start video thread
 threading.Thread(target=video_thread, daemon=True).start()
 
-# Main loop
 root.mainloop()
-
 cap.release()
 cv2.destroyAllWindows()
