@@ -119,6 +119,58 @@ def set_param(param_name, value):
     # Redraw the frame with updated parameters
     update_frame()
 
+def detect_line_fill_percentage(frame, polygon, dark_thresh=50, cluster_thresh=5):
+    """
+    Detects dark clusters within a polygon and estimates the filled percentage.
+
+    Args:
+        frame: The video frame (BGR image).
+        polygon: List of vertices defining the polygonal queue region.
+        dark_thresh: Threshold for identifying dark pixels (0-255).
+        cluster_thresh: Minimum cluster size to be considered significant.
+
+    Returns:
+        filled_percentage: Percentage of the queue area filled with dark pixels.
+    """
+    # Convert to grayscale for dark pixel detection
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Create a mask for the polygon
+    mask = np.zeros_like(gray)
+    cv2.fillPoly(mask, [np.array(polygon, dtype=np.int32)], 255)
+
+    # Detect dark pixels within the masked region
+    dark_pixels = (gray < dark_thresh) & (mask == 255)
+
+    # Label connected components (clusters)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        dark_pixels.astype(np.uint8), connectivity=8
+    )
+
+    # Filter clusters by size and calculate boundaries
+    valid_clusters = []
+    for i in range(1, num_labels):  # Skip the background label (0)
+        x, y, w, h, area = stats[i]
+        if area >= cluster_thresh:
+            valid_clusters.append((x, y, w, h))
+
+    # Calculate total dark area within the queue region
+    dark_area = sum(w * h for _, _, w, h in valid_clusters)
+
+    # Calculate the bounding box of the polygon
+    x, y, w, h = cv2.boundingRect(np.array(polygon, dtype=np.int32))
+    total_area = w * h
+
+    # Calculate filled percentage
+    filled_percentage = (dark_area / total_area) * 100 if total_area > 0 else 0
+
+    # Draw bounding boxes of valid clusters for visualization
+    for x, y, w, h in valid_clusters:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    return filled_percentage
+
+
 
 def process_image(image, alpha, beta, gamma, blur, kernel_size, morph_operation, lines, line_thickness, use_fill, use_blur, draw_lines):
     """Image enhancement pipeline."""
@@ -211,7 +263,11 @@ def process_frame(frame_number):
     for x, y in queue_box:
         cv2.circle(frame, (x, y), vertex_radius, (0, 0, 255), -1)
 
-    return frame, 0, 0  # Dummy values for people_count and line_length
+    # Detect line fill percentage
+    line_fill_percentage = detect_line_fill_percentage(frame, queue_box)
+
+    # Update frame
+    return frame, 0, line_fill_percentage
 
 def update_frame():
     """Update the frame."""
