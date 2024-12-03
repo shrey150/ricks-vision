@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 import os
-from tkinter import Tk, Scale, HORIZONTAL, Button, Label, StringVar, OptionMenu, Checkbutton, BooleanVar
+from tkinter import Tk, Scale, HORIZONTAL, Button, Label, StringVar, OptionMenu, Checkbutton, BooleanVar, Radiobutton
 import threading
 
-# Load YOLO
+# Load YOLO 
 net = cv2.dnn.readNet(
     os.path.join(os.path.dirname(os.path.dirname(__file__)), "app", "models", "yolov3", "yolov3.weights"),
     os.path.join(os.path.dirname(os.path.dirname(__file__)), "app", "models", "yolov3", "yolov3.cfg")
@@ -41,6 +41,10 @@ is_playing = False
 queue_box = [(535, 498), (481, 493), (828, 155), (857, 152)]  # Coordinates from coords.txt
 selected_vertex = None
 vertex_radius = 5
+
+# Add this near the other global variables
+detection_method = StringVar()
+detection_method.set("color")  # Default to color-based method
 
 def point_in_polygon(x, y, polygon):
     n = len(polygon)
@@ -119,56 +123,79 @@ def set_param(param_name, value):
     # Redraw the frame with updated parameters
     update_frame()
 
-def detect_line_fill_percentage(frame, polygon, dark_thresh=50, cluster_thresh=5):
+def detect_line_fill_percentage(frame, polygon, dark_thresh=50, cluster_thresh=5, angle_tolerance=15):
     """
-    Detects dark clusters within a polygon and estimates the filled percentage.
-
-    Args:
-        frame: The video frame (BGR image).
-        polygon: List of vertices defining the polygonal queue region.
-        dark_thresh: Threshold for identifying dark pixels (0-255).
-        cluster_thresh: Minimum cluster size to be considered significant.
-
-    Returns:
-        filled_percentage: Percentage of the queue area filled with dark pixels.
+    Estimates the queue fill percentage using either color-based or darkness-based detection.
     """
-    # Convert to grayscale for dark pixel detection
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Method 1: Color-based detection
+    def detect_non_white_regions(image, queue_box, kernel_size=15):
+        mask = np.zeros_like(image[:, :, 0])
+        cv2.fillPoly(mask, [np.array(queue_box, dtype=np.int32)], 255)
+        
+        masked_image = cv2.bitwise_and(image, image, mask=mask)
+        non_white_mask = cv2.inRange(masked_image, (0, 0, 0), (200, 200, 200))
+        
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+        morphed = cv2.morphologyEx(non_white_mask, cv2.MORPH_CLOSE, kernel)
+        
+        queue_start = min(queue_box, key=lambda p: p[1])
+        queue_end = max(queue_box, key=lambda p: p[1])
+        queue_height = queue_end[1] - queue_start[1]
+        
+        ys, xs = np.where(morphed > 0)
+        y_values_in_box = ys[(xs >= queue_start[0]) & (xs <= queue_end[0])]
+        
+        if len(y_values_in_box) == 0:
+            return 0.0, queue_end[1]
+            
+        end_y = np.max(y_values_in_box)
+        filled_height = end_y - queue_start[1]
+        filled_percentage = (filled_height / queue_height) * 100
+        
+        # Visualization
+        cv2.line(frame, (queue_start[0], queue_start[1]), 
+                (queue_start[0], int(end_y)), (0, 255, 0), 2)
+        
+        return min(filled_percentage, 100.0), end_y
 
-    # Create a mask for the polygon
-    mask = np.zeros_like(gray)
-    cv2.fillPoly(mask, [np.array(polygon, dtype=np.int32)], 255)
+    # Method 2: Darkness-based detection
+    def detect_darkness(frame, polygon, dark_thresh):
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        mask = np.zeros_like(gray)
+        cv2.fillPoly(mask, [np.array(polygon, dtype=np.int32)], 255)
 
-    # Detect dark pixels within the masked region
-    dark_pixels = (gray < dark_thresh) & (mask == 255)
+        points = np.array(polygon)
+        queue_start = points[points[:, 1].argmax()]
+        queue_end = points[points[:, 1].argmin()]
+        queue_length = np.linalg.norm(queue_end - queue_start)
 
-    # Label connected components (clusters)
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
-        dark_pixels.astype(np.uint8), connectivity=8
-    )
+        dark_pixels = (gray < dark_thresh) & (mask == 255)
+        
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            dark_pixels.astype(np.uint8), connectivity=8
+        )
 
-    # Filter clusters by size and calculate boundaries
-    valid_clusters = []
-    for i in range(1, num_labels):  # Skip the background label (0)
-        x, y, w, h, area = stats[i]
-        if area >= cluster_thresh:
-            valid_clusters.append((x, y, w, h))
+        if num_labels <= 1:
+            return 0.0
 
-    # Calculate total dark area within the queue region
-    dark_area = sum(w * h for _, _, w, h in valid_clusters)
+        dark_coords = np.column_stack(np.where(dark_pixels))[:, ::-1]
+        queue_vector = queue_end - queue_start
+        queue_unit = queue_vector / queue_length
 
-    # Calculate the bounding box of the polygon
-    x, y, w, h = cv2.boundingRect(np.array(polygon, dtype=np.int32))
-    total_area = w * h
+        projections = np.dot(dark_coords - queue_start, queue_unit)
+        min_proj = np.min(projections[projections >= 0])
+        max_proj = np.min([np.max(projections), queue_length])
 
-    # Calculate filled percentage
-    filled_percentage = (dark_area / total_area) * 100 if total_area > 0 else 0
+        filled_length = max_proj - min_proj
+        return (filled_length / queue_length) * 100
 
-    # Draw bounding boxes of valid clusters for visualization
-    for x, y, w, h in valid_clusters:
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    # Choose method based on radio button selection
+    if detection_method.get() == "color":
+        percentage, _ = detect_non_white_regions(frame, polygon)
+    else:  # darkness
+        percentage = detect_darkness(frame, polygon, dark_thresh)
 
-    return filled_percentage
+    return min(percentage, 100.0)
 
 
 
@@ -352,6 +379,13 @@ morph_menu.grid(row=7, column=1)
 
 draw_lines_checkbox = Checkbutton(root, text="Draw Power Lines", variable=draw_lines, command=lambda: set_param("draw_lines", draw_lines.get()))
 draw_lines_checkbox.grid(row=8, column=0, padx=10, pady=10)
+
+# Add these radio buttons near the other Tkinter controls
+Label(root, text="Detection Method:").grid(row=10, column=0)
+Radiobutton(root, text="Color-based", variable=detection_method, value="color", 
+            command=lambda: update_frame()).grid(row=10, column=1, sticky="w")
+Radiobutton(root, text="Darkness-based", variable=detection_method, value="darkness", 
+            command=lambda: update_frame()).grid(row=11, column=1, sticky="w")
 
 # Play/pause button
 play_pause_button = Button(root, text="Play", command=toggle_play_pause)
