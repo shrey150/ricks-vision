@@ -81,13 +81,13 @@ def mouse_callback(event, x, y, flags, param):
         selected_vertex = None
 
 # Image processing parameters (sliders will update these)
-alpha, beta, gamma = 12.7, 42, 10.0
-blur, kernel_size = 5, 21
+alpha, beta, gamma = 100, 100, 50.0
+blur, kernel_size = 1, 21
 morph_operation = "Opening"
 line_thickness = 2
 use_fill, use_blur = True, False
 draw_lines = BooleanVar()
-draw_lines.set(True)
+draw_lines.set(False)
 
 # Morphological operations dictionary
 morph_operations = {
@@ -197,8 +197,6 @@ def detect_line_fill_percentage(frame, polygon, dark_thresh=50, cluster_thresh=5
 
     return min(percentage, 100.0)
 
-
-
 def process_image(image, alpha, beta, gamma, blur, kernel_size, morph_operation, lines, line_thickness, use_fill, use_blur, draw_lines):
     """Image enhancement pipeline."""
     enhanced_img = cv2.convertScaleAbs(image, alpha=alpha / 10.0, beta=beta)
@@ -292,6 +290,8 @@ def process_frame(frame_number):
 
     # Detect line fill percentage
     line_fill_percentage = detect_line_fill_percentage(frame, queue_box)
+
+    print(line_fill_percentage)
 
     # Update frame
     return frame, 0, line_fill_percentage
