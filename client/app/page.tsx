@@ -53,22 +53,46 @@ export default function LandingPage() {
     setIsValid(limited.length === 10)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setAttempted(true)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAttempted(true);
+    
     if (isValid) {
-      // Show toast notification
-      toast({
-        title: "You're on the list! 🎉",
-        description: "We'll text you when the line is looking good!",
-        duration: 5000,
-      })
-      // Reset form
-      setPhone('')
-      setIsValid(false)
-      setAttempted(false)
+      try {
+        const response = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ phone }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to subscribe');
+        }
+
+        // Show success toast
+        toast({
+          title: "You're on the list! 🎉",
+          description: "We'll text you when the line is looking good!",
+          duration: 5000,
+        });
+
+        // Reset form
+        setPhone('');
+        setIsValid(false);
+        setAttempted(false);
+      } catch (error) {
+        console.error('Error:', error);
+        toast({
+          title: "Oops! Something went wrong",
+          description: "Please try again later",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-zinc-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
