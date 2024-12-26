@@ -18,6 +18,27 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Rick's Vision",
   description: "Get texts on how the line is looking",
+  metadataBase: new URL('https://your-domain.com'),
+  openGraph: {
+    title: "Rick's Vision",
+    description: "Get texts on how the line is looking",
+    type: "website",
+    images: [
+      {
+        url: '/api/og',
+        width: 1200,
+        height: 630,
+        alt: "Rick's Vision - Line Status Updates"
+      }
+    ],
+    siteName: "Rick's Vision"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rick's Vision",
+    description: "Get texts on how the line is looking",
+    images: ['/api/og'],
+  },
 };
 
 export default function RootLayout({
