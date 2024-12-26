@@ -8,21 +8,17 @@ import { useState } from 'react'
 export default function LandingPage() {
   const [phone, setPhone] = useState('')
   const [isValid, setIsValid] = useState(false)
-  const [attempted, setAttempted] = useState(false)
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
     const cleaned = value.replace(/\D/g, '')
     
-    // Limit to 10 digits
-    const limited = cleaned.slice(0, 10)
-    
     // Format the number
-    let formatted = limited
-    if (limited.length > 3) {
-      formatted = `${limited.slice(0, 3)}-${limited.slice(3)}`
+    let formatted = cleaned
+    if (cleaned.length > 3) {
+      formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`
     }
-    if (limited.length > 6) {
+    if (cleaned.length > 6) {
       formatted = `${formatted.slice(0, 7)}-${formatted.slice(7)}`
     }
     
@@ -45,15 +41,13 @@ export default function LandingPage() {
       setPhone(formattedNumber)
     }
     
-    // Check if it's a valid 10-digit number using the limited digits
-    const cleaned = input.replace(/\D/g, '')
-    const limited = cleaned.slice(0, 10)
-    setIsValid(limited.length === 10)
+    // Check if it's a valid 10-digit number
+    const digitsOnly = input.replace(/\D/g, '')
+    setIsValid(digitsOnly.length === 10)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setAttempted(true)
     if (isValid) {
       // Handle form submission
       console.log('Valid phone number:', phone)
@@ -95,7 +89,7 @@ export default function LandingPage() {
               className="bg-white/10 border-white/20 text-white placeholder-white/50 backdrop-blur-sm"
               placeholder="123-456-7890"
             />
-            {attempted && !isValid && (
+            {phone && !isValid && (
               <p className="text-red-400 text-sm">Please enter a valid 10-digit phone number</p>
             )}
           </div>
