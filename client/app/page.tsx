@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TreePalmIcon as PalmTree } from 'lucide-react'
 import { useState } from 'react'
+import { useToast } from "@/hooks/use-toast"
 
 export default function LandingPage() {
   const [phone, setPhone] = useState('')
   const [isValid, setIsValid] = useState(false)
   const [attempted, setAttempted] = useState(false)
+  const { toast } = useToast()
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
@@ -55,8 +57,16 @@ export default function LandingPage() {
     e.preventDefault()
     setAttempted(true)
     if (isValid) {
-      // Handle form submission
-      console.log('Valid phone number:', phone)
+      // Show toast notification
+      toast({
+        title: "You're on the list! 🎉",
+        description: "We'll text you when the line is looking good!",
+        duration: 5000,
+      })
+      // Reset form
+      setPhone('')
+      setIsValid(false)
+      setAttempted(false)
     }
   }
 
@@ -68,22 +78,21 @@ export default function LandingPage() {
       {/* Brick texture overlay */}
       <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGRlZnM+PHBhdHRlcm4gaWQ9ImJyaWNrIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiPjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNMCAwaDQwdjIwSDB6IiBmaWxsPSIjMjIyIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2JyaWNrKSIvPjwvc3ZnPg==')]" />
 
-      <main className="max-w-md w-full space-y-8 bg-black/40 backdrop-blur-sm p-8 rounded-lg border border-white/10 shadow-2xl relative z-10">
-        <div className="text-center space-y-4">
-          {/* Logo section */}
+      <main className="w-[min(100%,400px)] space-y-6 bg-black/40 backdrop-blur-sm p-6 rounded-lg border border-white/10 shadow-2xl relative z-10">
+        <div className="text-center space-y-3">
           <div className="relative inline-block">
-            <PalmTree className="h-12 w-12 text-green-400 absolute -right-8 -top-6 transform rotate-12" />
-            <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-600 
+            <PalmTree className="h-10 w-10 text-green-400 absolute -right-6 -top-5 transform rotate-12" />
+            <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-600 
               [text-shadow:0_0_20px_theme(colors.red.500/40)] animate-pulse">
               Rick's Vision
             </h1>
           </div>
-          <p className="text-xl text-blue-400 [text-shadow:0_0_10px_theme(colors.blue.400/40)]">
+          <p className="text-lg text-blue-400 [text-shadow:0_0_10px_theme(colors.blue.400/40)]">
             Get texts on how the line is looking
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <Input
               id="phone-number"
@@ -92,26 +101,26 @@ export default function LandingPage() {
               required
               value={phone}
               onChange={handlePhoneChange}
-              className="bg-white/10 border-white/20 text-white placeholder-white/50 backdrop-blur-sm"
+              className="h-12 text-lg bg-white/10 border-white/20 text-white placeholder-white/50 backdrop-blur-sm"
               placeholder="123-456-7890"
             />
             {attempted && !isValid && (
-              <p className="text-red-400 text-sm">Please enter a valid 10-digit phone number</p>
+              <p className="text-red-400 text-sm px-1">Please enter a valid 10-digit phone number</p>
             )}
           </div>
 
           <Button
             type="submit"
             disabled={!isValid}
-            className="w-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30
-              transition-all duration-300 hover:shadow-red-500/50 hover:scale-[1.02]
+            className="w-full h-12 text-lg bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30
+              transition-all duration-300 hover:shadow-red-500/50 active:scale-95
               disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-red-500/30"
           >
             Notify me
           </Button>
         </form>
 
-        <p className="text-center text-sm text-zinc-400">
+        <p className="text-center text-xs text-zinc-400 px-2">
           By providing your information you opt in to receiving texts from our service. 
           Messaging rates may apply.
         </p>
