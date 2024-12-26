@@ -17,8 +17,8 @@ Then, setup and start the frontend dev server:
 
 ```
 cd client
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Finally, setup and start the FastAPI server:
