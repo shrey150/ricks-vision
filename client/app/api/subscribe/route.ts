@@ -78,8 +78,8 @@ export async function POST(req: Request) {
       if (result.rows.length > 0) {
         if (result.rows[0].active) {
           return NextResponse.json(
-            { error: 'This phone number is already subscribed' },
-            { status: 409 }
+            { message: "You're on the list! We'll text you when the line is looking good!" },
+            { status: 200 }
           );
         } else {
           // Reactivate the subscription
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
             WHERE phone = ${phone}
           `;
           return NextResponse.json(
-            { message: 'Successfully resubscribed' },
+            { message: "You're on the list! We'll text you when the line is looking good!" },
             { status: 200 }
           );
         }
