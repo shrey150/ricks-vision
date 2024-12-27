@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { TreePalmIcon as PalmTree } from 'lucide-react'
+import { TreePalmIcon as PalmTree, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { useToast } from "@/hooks/use-toast"
 
@@ -10,6 +10,7 @@ export default function LandingPage() {
   const [phone, setPhone] = useState('')
   const [isValid, setIsValid] = useState(false)
   const [attempted, setAttempted] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
   const formatPhoneNumber = (value: string) => {
@@ -58,6 +59,7 @@ export default function LandingPage() {
     setAttempted(true);
     
     if (isValid) {
+      setIsLoading(true);
       try {
         const response = await fetch('/api/subscribe', {
           method: 'POST',
@@ -71,14 +73,12 @@ export default function LandingPage() {
           throw new Error('Failed to subscribe');
         }
 
-        // Show success toast
         toast({
           title: "You're on the list! 🎉",
           description: "We'll text you when the line is looking good!",
           duration: 5000,
         });
 
-        // Reset form
         setPhone('');
         setIsValid(false);
         setAttempted(false);
@@ -90,6 +90,8 @@ export default function LandingPage() {
           variant: "destructive",
           duration: 5000,
         });
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -135,12 +137,16 @@ export default function LandingPage() {
 
           <Button
             type="submit"
-            disabled={!isValid}
+            disabled={!isValid || isLoading}
             className="w-full h-12 text-lg bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30
               transition-all duration-300 hover:shadow-red-500/50 active:scale-95
               disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-red-500/30"
           >
-            Notify me
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              'Notify me'
+            )}
           </Button>
         </form>
 
