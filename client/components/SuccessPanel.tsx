@@ -14,7 +14,7 @@ export default function SuccessPanel() {
       <p className="text-xl text-blue-400 [text-shadow:0_0_10px_theme(colors.blue.400/40)]">
         Thanks! You'll get a text shortly.
       </p>
-      <p className="text-xl italic text-zinc-300">
+      <p className="text-l italic text-zinc-300">
         You can also text Rick's Vision directly to get line updates. Try it out below!
       </p>
       <Button
