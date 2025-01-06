@@ -18,7 +18,11 @@ async def send_individual_update(
     if Body.strip().upper() == "EYES":
         update = session.query(LineUpdate).order_by(LineUpdate.created_at.desc()).first()
         if not update:
-            raise HTTPException(status_code=404, detail="No updates found")
+            client.messages.create(
+                body=f"🌴🔮: No updates right now. Check back soon!",
+                from_=getenv("TWILIO_PHONE_NUMBER"),
+                to=From
+            )
 
         subscriber = session.query(Subscriber).filter(Subscriber.phone == From).first()
         if not subscriber:
