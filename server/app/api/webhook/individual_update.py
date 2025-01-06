@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlmodel import Session
 from app.models import Subscriber, LineUpdate
 from twilio.rest import Client
@@ -8,7 +8,11 @@ from app.db.database import get_session
 router = APIRouter()
 
 @router.post("/webhook/individual-update")
-async def send_individual_update(From: str, Body: str, session: Session = Depends(get_session)):
+async def send_individual_update(
+    From: str = Form(...),
+    Body: str = Form(...),
+    session: Session = Depends(get_session)
+):
     client = Client(getenv("TWILIO_ACCOUNT_SID"), getenv("TWILIO_AUTH_TOKEN"))
 
     if Body.strip().upper() == "EYES":
