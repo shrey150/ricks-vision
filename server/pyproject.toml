@@ -11,3 +11,23 @@ dependencies = [
     "pillow>=11.0.0",
     "streamlink>=7.0.0",
 ]
+
+[tool.poetry]
+name = "server"
+version = "0.1.0"
+description = ""
+authors = ["Shrey Pandya <shrey150@yahoo.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = {extras = ["standard"], version = "^0.115.6"}
+pydantic-settings = "^2.7.1"
+sqlmodel = "^0.0.22"
+psycopg = "^3.2.3"
+twilio = "^9.4.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
